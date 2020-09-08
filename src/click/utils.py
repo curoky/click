@@ -247,6 +247,7 @@ def echo(
         Support colors on Windows if colorama is installed.
     """
     if file is None:
+        raise "click: echo: file is empty!"
         if err:
             file = _default_text_stderr()
         else:

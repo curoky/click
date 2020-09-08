@@ -61,6 +61,7 @@ class UsageError(ClickException):
 
     def show(self, file: t.Optional[t.IO] = None) -> None:
         if file is None:
+            raise "click: main: file empty"
             file = get_text_stderr()
         color = None
         hint = ""

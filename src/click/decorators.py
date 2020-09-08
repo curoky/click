@@ -391,7 +391,7 @@ def version_option(
         echo(
             t.cast(str, message)
             % {"prog": prog_name, "package": package_name, "version": version},
-            color=ctx.color,
+            color=ctx.color, file=ctx.file,
         )
         ctx.exit()
 
@@ -423,7 +423,7 @@ def help_option(*param_decls: str, **kwargs: t.Any) -> t.Callable[[FC], FC]:
         if not value or ctx.resilient_parsing:
             return
 
-        echo(ctx.get_help(), color=ctx.color)
+        echo(ctx.get_help(), color=ctx.color, file=ctx.file)
         ctx.exit()
 
     if not param_decls:

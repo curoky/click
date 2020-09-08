@@ -282,6 +282,7 @@ class Context:
         token_normalize_func: t.Optional[t.Callable[[str], str]] = None,
         color: t.Optional[bool] = None,
         show_default: t.Optional[bool] = None,
+        file=None,
     ) -> None:
         #: the parent context or `None` if none exists.
         self.parent = parent
@@ -433,6 +434,7 @@ class Context:
         self._depth = 0
         self._parameter_source: t.Dict[str, ParameterSource] = {}
         self._exit_stack = ExitStack()
+        self.file = file
 
     def to_info_dict(self) -> t.Dict[str, t.Any]:
         """Gather information that could be useful for a tool generating
@@ -994,6 +996,7 @@ class BaseCommand:
         complete_var: t.Optional[str] = None,
         standalone_mode: bool = True,
         windows_expand_args: bool = True,
+        file=None,
         **extra: t.Any,
     ) -> t.Any:
         """This is the way to invoke a script with all the bells and
@@ -1041,7 +1044,8 @@ class BaseCommand:
         # Verify that the environment is configured correctly, or reject
         # further execution to avoid a broken script.
         _verify_python_env()
-
+        if file is None:
+            raise "click: main: file empty"
         if args is None:
             args = sys.argv[1:]
 
@@ -1058,7 +1062,7 @@ class BaseCommand:
 
         try:
             try:
-                with self.make_context(prog_name, args, **extra) as ctx:
+                with self.make_context(prog_name, args, file=file, **extra) as ctx:
                     rv = self.invoke(ctx)
                     if not standalone_mode:
                         return rv
@@ -1071,12 +1075,12 @@ class BaseCommand:
                     # by its truthiness/falsiness
                     ctx.exit()
             except (EOFError, KeyboardInterrupt):
-                echo(file=sys.stderr)
+                echo(file=file)
                 raise Abort()
             except ClickException as e:
+                e.show(file=file)
                 if not standalone_mode:
                     raise
-                e.show()
                 sys.exit(e.exit_code)
             except OSError as e:
                 if e.errno == errno.EPIPE:
@@ -1101,7 +1105,7 @@ class BaseCommand:
         except Abort:
             if not standalone_mode:
                 raise
-            echo(_("Aborted!"), file=sys.stderr)
+            echo(_("Aborted!"), file=file)
             sys.exit(1)
 
     def _main_shell_completion(
@@ -1276,7 +1280,7 @@ class Command(BaseCommand):
 
         def show_help(ctx: Context, param: "Parameter", value: str) -> None:
             if value and not ctx.resilient_parsing:
-                echo(ctx.get_help(), color=ctx.color)
+                echo(ctx.get_help(), color=ctx.color, file=ctx.file)
                 ctx.exit()
 
         return Option(
@@ -1369,7 +1373,7 @@ class Command(BaseCommand):
 
     def parse_args(self, ctx: Context, args: t.List[str]) -> t.List[str]:
         if not args and self.no_args_is_help and not ctx.resilient_parsing:
-            echo(ctx.get_help(), color=ctx.color)
+            echo(ctx.get_help(), color=ctx.color, file=ctx.file)
             ctx.exit()
 
         parser = self.make_parser(ctx)
@@ -1618,7 +1622,7 @@ class MultiCommand(Command):
 
     def parse_args(self, ctx: Context, args: t.List[str]) -> t.List[str]:
         if not args and self.no_args_is_help and not ctx.resilient_parsing:
-            echo(ctx.get_help(), color=ctx.color)
+            echo(ctx.get_help(), color=ctx.color, file=ctx.file)
             ctx.exit()
 
         rest = super().parse_args(ctx, args)
@@ -1663,7 +1667,7 @@ class MultiCommand(Command):
                 assert cmd is not None
                 ctx.invoked_subcommand = cmd_name
                 super().invoke(ctx)
-                sub_ctx = cmd.make_context(cmd_name, args, parent=ctx)
+                sub_ctx = cmd.make_context(cmd_name, args, parent=ctx, file=ctx.file)
                 with sub_ctx:
                     return _process_result(sub_ctx.command.invoke(sub_ctx))
 
